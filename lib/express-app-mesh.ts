@@ -36,18 +36,17 @@ interface Props {
   cluster: Cluster;
   httpNamespaceName: string;
   mesh: Mesh;
-  gateway: VirtualGateway;
   securityGroup: ISecurityGroup;
   backends?: VirtualService[];
 }
 
-export class ExpressJsAppMeshStack extends Construct {
+export class ExpressJsAppMeshService extends Construct {
   public readonly virtualService: VirtualService;
   public readonly virtualNode: VirtualNode;
   constructor(scope: Construct, id: string, props: Props) {
     super(scope, id);
 
-    const { cluster, httpNamespaceName, mesh, gateway } = props;
+    const { cluster, httpNamespaceName, mesh } = props;
 
     const taskDefinition = new FargateTaskDefinition(this, "TaskDefinition", {
       proxyConfiguration: new AppMeshProxyConfiguration({
@@ -171,17 +170,5 @@ export class ExpressJsAppMeshStack extends Construct {
       virtualServiceProvider: VirtualServiceProvider.virtualNode(virtualNode),
     });
     this.virtualService = virtualService;
-
-    gateway.addGatewayRoute(props.serviceName, {
-      routeSpec: GatewayRouteSpec.http({
-        routeTarget: virtualService,
-
-        match: {
-          path: HttpGatewayRoutePathMatch.startsWith(
-            `/service-${props.serviceName}`
-          ),
-        },
-      }),
-    });
   }
 }
