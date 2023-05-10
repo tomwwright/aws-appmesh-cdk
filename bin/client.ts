@@ -8,7 +8,7 @@ async function main() {
     console.error("Usage: yarn start [hostname]");
     process.exit(1);
   }
-  const url = `http://${hostname}/service-blue-green`;
+  const url = `http://${hostname}`;
 
   console.log(`Running against ${url}`);
   setInterval(() => request(url), 1000);
