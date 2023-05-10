@@ -63,6 +63,7 @@ export class AppMeshExpress extends Construct {
       healthCheck: {
         command: ["CMD-SHELL", "curl -f http://localhost:80 || exit 1"],
         interval: Duration.seconds(5),
+        startPeriod: Duration.seconds(10),
         timeout: Duration.seconds(2),
         retries: 2,
       },
