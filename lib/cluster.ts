@@ -1,10 +1,9 @@
-import { CfnCluster, Cluster } from "aws-cdk-lib/aws-ecs";
-import { HttpNamespace, INamespace } from "aws-cdk-lib/aws-servicediscovery";
+import { Cluster } from "aws-cdk-lib/aws-ecs";
+import { INamespace } from "aws-cdk-lib/aws-servicediscovery";
 import {
   AwsCustomResource,
   AwsCustomResourcePolicy,
   PhysicalResourceId,
-  PhysicalResourceIdReference,
 } from "aws-cdk-lib/custom-resources";
 import { Construct } from "constructs";
 
@@ -12,7 +11,7 @@ interface Props {
   namespaceName: string;
 }
 
-export class ClusterStack extends Construct {
+export class ClusterConstruct extends Construct {
   public readonly cluster: Cluster;
   public readonly namespace: INamespace;
   public readonly httpNamespaceName: string;

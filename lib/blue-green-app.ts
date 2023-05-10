@@ -11,9 +11,9 @@ import {
 import { IConnectable } from "aws-cdk-lib/aws-ec2";
 import { Construct } from "constructs";
 import { BlueGreenDeployment } from "./blue-green";
-import { ClusterStack } from "./cluster";
-import { ExpressJsAppMeshService } from "./express-app-mesh";
-import { MeshStack } from "./mesh";
+import { ClusterConstruct } from "./cluster";
+import { ExpressJsAppMesh } from "./express-app-mesh";
+import { MeshConstruct } from "./mesh";
 
 interface Props {
   namespaceName: string;
@@ -28,13 +28,13 @@ export class BlueGreenApp extends Construct {
 
     const stack = new Stack(this, "blue-green");
 
-    const clusterStack = new ClusterStack(stack, "Cluster", {
+    const clusterStack = new ClusterConstruct(stack, "Cluster", {
       namespaceName,
     });
 
     const { cluster, httpNamespaceName, namespace } = clusterStack;
 
-    const meshStack = new MeshStack(stack, "Mesh", {
+    const meshStack = new MeshConstruct(stack, "Mesh", {
       cluster,
       namespace,
       externalAccess,
@@ -54,7 +54,7 @@ export class BlueGreenApp extends Construct {
     const deploy = new BlueGreenDeployment(stack, "Deploy", {
       version: 5,
       build: (scope, version) => {
-        const service = new ExpressJsAppMeshService(scope, "Service", {
+        const service = new ExpressJsAppMesh(scope, "Service", {
           serviceName: scope.node.id,
           version: version.toString(),
           ...meshThings,

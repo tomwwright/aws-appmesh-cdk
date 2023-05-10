@@ -41,7 +41,7 @@ interface Props {
   backends?: VirtualService[];
 }
 
-export class ExpressJsAppMeshService extends Construct {
+export class ExpressJsAppMesh extends Construct {
   public readonly virtualService: VirtualService;
   public readonly virtualNode: VirtualNode;
   constructor(scope: Construct, id: string, props: Props) {

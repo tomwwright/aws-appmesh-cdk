@@ -37,7 +37,7 @@ interface Props extends StackProps {
   externalAccess: IConnectable;
 }
 
-export class MeshStack extends Construct {
+export class MeshConstruct extends Construct {
   public readonly mesh: Mesh;
   public readonly gateway: VirtualGateway;
   public readonly securityGroup: ISecurityGroup;

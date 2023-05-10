@@ -1,7 +1,7 @@
 import { IConnectable } from "aws-cdk-lib/aws-ec2";
 import { App, Stack } from "aws-cdk-lib";
-import { ClusterStack } from "./cluster";
-import { MeshStack } from "./mesh";
+import { ClusterConstruct } from "./cluster";
+import { MeshConstruct } from "./mesh";
 import {
   GatewayRouteSpec,
   HttpGatewayRoutePathMatch,
@@ -11,7 +11,7 @@ import {
   VirtualService,
   VirtualServiceProvider,
 } from "aws-cdk-lib/aws-appmesh";
-import { ExpressJsAppMeshService } from "./express-app-mesh";
+import { ExpressJsAppMesh } from "./express-app-mesh";
 
 interface Props {
   namespaceName: string;
@@ -26,20 +26,20 @@ export class MeshTestApp extends App {
 
     const stack = new Stack(this, namespaceName);
 
-    const clusterStack = new ClusterStack(stack, "Cluster", {
+    const clusterStack = new ClusterConstruct(stack, "Cluster", {
       namespaceName,
     });
 
     const { cluster, httpNamespaceName, namespace } = clusterStack;
 
-    const meshStack = new MeshStack(stack, "Mesh", {
+    const meshStack = new MeshConstruct(stack, "Mesh", {
       cluster,
       namespace,
       externalAccess,
     });
 
     const { mesh, gateway, securityGroup } = meshStack;
-    
+
     const meshThings = {
       cluster,
       namespace,
@@ -49,12 +49,12 @@ export class MeshTestApp extends App {
       securityGroup,
     };
 
-    const expressJsBlue = new ExpressJsAppMeshService(stack, "Blue", {
+    const expressJsBlue = new ExpressJsAppMesh(stack, "Blue", {
       serviceName: "blue",
       ...meshThings,
     });
 
-    const expressJsGreen = new ExpressJsAppMeshService(stack, "Green", {
+    const expressJsGreen = new ExpressJsAppMesh(stack, "Green", {
       serviceName: "green",
       backends: [expressJsBlue.virtualService],
       ...meshThings,
