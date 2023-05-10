@@ -27,20 +27,20 @@ export class AppMeshApp extends App {
 
     const stack = new Stack(this, namespaceName);
 
-    const clusterStack = new AppMeshCluster(stack, "Cluster", {
-      namespaceName,
-      externalAccess,
-    });
+    const { cluster, namespace, securityGroup } = new AppMeshCluster(
+      stack,
+      "Cluster",
+      {
+        namespaceName,
+        externalAccess,
+      }
+    );
 
-    const { cluster, namespace, securityGroup } = clusterStack;
-
-    const meshStack = new AppMesh(stack, "Mesh", {
+    const { mesh, gateway } = new AppMesh(stack, "Mesh", {
       cluster,
       namespace,
       securityGroup,
     });
-
-    const { mesh, gateway } = meshStack;
 
     const meshThings = {
       cluster,

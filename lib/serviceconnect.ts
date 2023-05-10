@@ -16,12 +16,14 @@ export class ServiceConnectApp extends App {
 
     const stack = new Stack(this, namespaceName);
 
-    const clusterStack = new ServiceConnectCluster(stack, "Cluster", {
-      namespaceName,
-      externalAccess,
-    });
-
-    const { cluster, namespace, securityGroup } = clusterStack;
+    const { cluster, namespace, securityGroup } = new ServiceConnectCluster(
+      stack,
+      "Cluster",
+      {
+        namespaceName,
+        externalAccess,
+      }
+    );
 
     new ServiceConnectExpress(stack, "Blue", {
       serviceName: "blue",
