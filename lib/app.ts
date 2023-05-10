@@ -39,6 +39,7 @@ export class MeshTestApp extends App {
     });
 
     const { mesh, gateway, securityGroup } = meshStack;
+    
     const meshThings = {
       cluster,
       namespace,

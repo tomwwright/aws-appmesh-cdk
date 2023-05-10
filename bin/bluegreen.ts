@@ -11,7 +11,7 @@ async function main() {
 
   new BlueGreenApp(app, "bluegreen", {
     namespaceName: "bluegreen",
-    externalAccess: Peer.ipv4("14.202.217.89/32"),
+    externalAccess: Peer.ipv4("139.130.21.126/32"),
   });
 }
 

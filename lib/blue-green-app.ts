@@ -1,4 +1,13 @@
 import { App, Stack } from "aws-cdk-lib";
+import {
+  GatewayRouteSpec,
+  HttpGatewayRoutePathMatch,
+  RouteSpec,
+  VirtualRouter,
+  VirtualRouterListener,
+  VirtualService,
+  VirtualServiceProvider,
+} from "aws-cdk-lib/aws-appmesh";
 import { IConnectable } from "aws-cdk-lib/aws-ec2";
 import { Construct } from "constructs";
 import { BlueGreenDeployment } from "./blue-green";
@@ -42,14 +51,53 @@ export class BlueGreenApp extends Construct {
       securityGroup,
     };
 
-    new BlueGreenDeployment(stack, "Deploy", {
-      version: 3,
+    const deploy = new BlueGreenDeployment(stack, "Deploy", {
+      version: 5,
       build: (scope, version) => {
-        new ExpressJsAppMeshService(scope, "Service", {
+        const service = new ExpressJsAppMeshService(scope, "Service", {
           serviceName: scope.node.id,
+          version: version.toString(),
           ...meshThings,
         });
+        return service.virtualNode;
       },
+    });
+
+    // construct router on top of services
+
+    const router = new VirtualRouter(stack, "Router", {
+      mesh,
+      virtualRouterName: "router",
+      listeners: [VirtualRouterListener.http(80)],
+    });
+    router.addRoute("blue-green", {
+      routeName: "blue-green",
+      routeSpec: RouteSpec.http({
+        weightedTargets: [
+          {
+            virtualNode: deploy.blue,
+            weight: 50,
+          },
+          {
+            virtualNode: deploy.green,
+            weight: 50,
+          },
+        ],
+      }),
+    });
+
+    const blueGreenSerice = new VirtualService(stack, "RouterService", {
+      virtualServiceProvider: VirtualServiceProvider.virtualRouter(router),
+      virtualServiceName: "router-service",
+    });
+
+    gateway.addGatewayRoute("blue-green", {
+      routeSpec: GatewayRouteSpec.http({
+        routeTarget: blueGreenSerice,
+        match: {
+          path: HttpGatewayRoutePathMatch.startsWith(`/service-blue-green`),
+        },
+      }),
     });
   }
 }

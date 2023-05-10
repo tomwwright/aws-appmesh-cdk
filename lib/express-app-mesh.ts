@@ -33,6 +33,7 @@ import { Construct } from "constructs";
 
 interface Props {
   serviceName: string;
+  version?: string;
   cluster: Cluster;
   httpNamespaceName: string;
   mesh: Mesh;
@@ -65,9 +66,16 @@ export class ExpressJsAppMeshService extends Construct {
       image: ContainerImage.fromAsset("expressjs"),
       command: ["serve:js"],
       logging: LogDriver.awsLogs({ streamPrefix: "expressjs" }),
+      healthCheck: {
+        command: ["CMD-SHELL", "curl -f http://localhost:9080 || exit 1"],
+        interval: Duration.seconds(5),
+        timeout: Duration.seconds(2),
+        retries: 2,
+      },
       environment: {
         SERVICE_NAME: props.serviceName,
         SERVICE_PORT: "9080",
+        SERVICE_VERSION: props.version ?? "unknown",
       },
       portMappings: [
         {

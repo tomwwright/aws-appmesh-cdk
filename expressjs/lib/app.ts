@@ -2,7 +2,7 @@ import * as express from "express";
 import type { ErrorRequestHandler } from "express";
 import fetch from "node-fetch";
 
-export const createApp = (service: string) => {
+export const createApp = (service: string, version: string) => {
   const app = express();
   app.use(express.json());
 
@@ -25,6 +25,7 @@ export const createApp = (service: string) => {
     res.json({
       message: "ok",
       service,
+      version,
     });
   });
 

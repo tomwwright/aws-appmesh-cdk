@@ -3,6 +3,7 @@ import { Construct } from "constructs";
 import { SSM } from "@aws-sdk/client-ssm";
 import { App } from "aws-cdk-lib";
 import { StringParameter } from "aws-cdk-lib/aws-ssm";
+import { VirtualNode } from "aws-cdk-lib/aws-appmesh";
 
 export async function injectBlueGreenState(app: App) {
   let state: BlueGreenState | null = null;
@@ -38,7 +39,7 @@ export async function injectBlueGreenState(app: App) {
 }
 
 interface Props {
-  build: (scope: Construct, version: number) => void;
+  build: (scope: Construct, version: number) => VirtualNode;
   version: number;
 }
 
@@ -49,8 +50,12 @@ type BlueGreenState = {
 };
 
 export class BlueGreenDeployment extends Construct {
+  public readonly blue: VirtualNode;
+  public readonly green: VirtualNode;
   constructor(scope: Construct, id: string, props: Props) {
     super(scope, id);
+
+    // manage state
 
     // using ss.StringParameter.fromLookup() doesn't work as expected!
     // Context providers actually execute _after_ construction
@@ -74,20 +79,26 @@ export class BlueGreenDeployment extends Construct {
       newState = currentState;
     }
 
-    const blue = new Construct(this, "Blue");
-    const green = new Construct(this, "Green");
-
-    if (newState.nextUpdate == "blue") {
-      props.build(blue, newState.nextVersion);
-      props.build(green, newState.currentVersion);
-    } else {
-      props.build(blue, newState.nextVersion);
-      props.build(green, newState.currentVersion);
-    }
-
     new StringParameter(this, "StateParameter", {
       parameterName: "blue-green-state",
       stringValue: JSON.stringify(newState),
     });
+
+    // construct services
+
+    const blue = new Construct(this, "Blue");
+    const green = new Construct(this, "Green");
+
+    const blueVersion =
+      newState.nextUpdate == "blue"
+        ? newState.nextVersion
+        : newState.currentVersion;
+    const greenVersion =
+      newState.nextUpdate == "green"
+        ? newState.nextVersion
+        : newState.currentVersion;
+
+    this.blue = props.build(blue, blueVersion);
+    this.green = props.build(green, greenVersion);
   }
 }
