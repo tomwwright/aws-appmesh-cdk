@@ -10,6 +10,8 @@
     "watch": "tsc -w",
     "test": "jest",
     "cdk": "cdk",
+    "cdk:appmesh": "cdk --app \"yarn ts-node bin/appmesh.ts\"",
+    "cdk:serviceconnect": "cdk --app \"yarn ts-node bin/service-connect.ts\"",
     "start": "ts-node bin/client.ts"
   },
   "devDependencies": {

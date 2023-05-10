@@ -1,14 +1,9 @@
 import { Duration } from "aws-cdk-lib";
 import {
   AccessLog,
-  Backend,
-  CfnVirtualNode,
-  GatewayRouteSpec,
   HealthCheck,
-  HttpGatewayRoutePathMatch,
   Mesh,
   ServiceDiscovery,
-  VirtualGateway,
   VirtualNode,
   VirtualNodeListener,
   VirtualService,
@@ -25,8 +20,8 @@ import {
   UlimitName,
 } from "aws-cdk-lib/aws-ecs";
 import {
-  DiscoveryType,
   DnsRecordType,
+  INamespace,
   Service,
 } from "aws-cdk-lib/aws-servicediscovery";
 import { Construct } from "constructs";
@@ -35,25 +30,24 @@ interface Props {
   serviceName: string;
   version?: string;
   cluster: Cluster;
-  httpNamespaceName: string;
+  namespace: INamespace;
   mesh: Mesh;
   securityGroup: ISecurityGroup;
-  backends?: VirtualService[];
 }
 
-export class ExpressJsAppMesh extends Construct {
+export class AppMeshExpress extends Construct {
   public readonly virtualService: VirtualService;
   public readonly virtualNode: VirtualNode;
   constructor(scope: Construct, id: string, props: Props) {
     super(scope, id);
 
-    const { cluster, httpNamespaceName, mesh } = props;
+    const { cluster, mesh } = props;
 
     const taskDefinition = new FargateTaskDefinition(this, "TaskDefinition", {
       proxyConfiguration: new AppMeshProxyConfiguration({
         containerName: "proxy",
         properties: {
-          appPorts: [9080],
+          appPorts: [80],
           ignoredUID: 1337,
           proxyIngressPort: 15000,
           proxyEgressPort: 15001,
@@ -67,19 +61,19 @@ export class ExpressJsAppMesh extends Construct {
       command: ["serve:js"],
       logging: LogDriver.awsLogs({ streamPrefix: "expressjs" }),
       healthCheck: {
-        command: ["CMD-SHELL", "curl -f http://localhost:9080 || exit 1"],
+        command: ["CMD-SHELL", "curl -f http://localhost:80 || exit 1"],
         interval: Duration.seconds(5),
         timeout: Duration.seconds(2),
         retries: 2,
       },
       environment: {
         SERVICE_NAME: props.serviceName,
-        SERVICE_PORT: "9080",
+        SERVICE_PORT: "80",
         SERVICE_VERSION: props.version ?? "unknown",
       },
       portMappings: [
         {
-          containerPort: 9080,
+          containerPort: 80,
         },
       ],
     });
@@ -88,19 +82,13 @@ export class ExpressJsAppMesh extends Construct {
       cluster,
       taskDefinition,
       securityGroups: [props.securityGroup],
-      assignPublicIp: false,
+      assignPublicIp: true,
     });
-
-    if (!cluster.defaultCloudMapNamespace) {
-      throw new Error(
-        "ECS Cluster not associated with AWS CloudMap namespace!"
-      );
-    }
 
     const cloudMapService = new Service(this, "ServiceDiscovery", {
       name: props.serviceName,
-      namespace: cluster.defaultCloudMapNamespace,
-      dnsRecordType: DnsRecordType.SRV,
+      namespace: props.namespace,
+      dnsRecordType: DnsRecordType.A,
       customHealthCheck: {
         failureThreshold: 1,
       },
@@ -115,24 +103,14 @@ export class ExpressJsAppMesh extends Construct {
       serviceDiscovery: ServiceDiscovery.cloudMap(cloudMapService),
       listeners: [
         VirtualNodeListener.http({
-          port: 9080,
+          port: 80,
           healthCheck: HealthCheck.http(),
         }),
       ],
-      backends: props.backends
-        ? props.backends.map((backend) => Backend.virtualService(backend))
-        : undefined,
       accessLog: AccessLog.fromFilePath("/dev/stdout"),
     });
     virtualNode.grantStreamAggregatedResources(taskDefinition.taskRole);
     this.virtualNode = virtualNode;
-
-    // monkey-patch the Virtual Node to set the correct NamespaceName
-    const cfnVirtualNode = virtualNode.node.defaultChild as CfnVirtualNode;
-    cfnVirtualNode.addPropertyOverride(
-      "Spec.ServiceDiscovery.AWSCloudMap.NamespaceName",
-      httpNamespaceName
-    );
 
     const proxyContainer = taskDefinition.addContainer("proxy", {
       image: ContainerImage.fromRegistry(
@@ -141,7 +119,6 @@ export class ExpressJsAppMesh extends Construct {
       environment: {
         APPMESH_RESOURCE_ARN: virtualNode.virtualNodeArn,
         ENABLE_ENVOY_STATS_TAGS: "1",
-        ENVOY_LOG_LEVEL: "trace",
       },
       healthCheck: {
         command: [
@@ -161,6 +138,12 @@ export class ExpressJsAppMesh extends Construct {
         {
           containerPort: 9901,
         },
+        {
+          containerPort: 15000,
+        },
+        {
+          containerPort: 15001,
+        },
       ],
     });
     proxyContainer.addUlimits({
@@ -174,7 +157,7 @@ export class ExpressJsAppMesh extends Construct {
     });
 
     const virtualService = new VirtualService(this, "VirtualService", {
-      virtualServiceName: props.serviceName,
+      virtualServiceName: `${props.serviceName}.${props.namespace.namespaceName}`,
       virtualServiceProvider: VirtualServiceProvider.virtualNode(virtualNode),
     });
     this.virtualService = virtualService;

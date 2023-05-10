@@ -34,32 +34,21 @@ import { Construct } from "constructs";
 interface Props extends StackProps {
   cluster: Cluster;
   namespace: IHttpNamespace;
-  externalAccess: IConnectable;
+  securityGroup: ISecurityGroup;
 }
 
-export class MeshConstruct extends Construct {
+export class AppMesh extends Construct {
   public readonly mesh: Mesh;
   public readonly gateway: VirtualGateway;
-  public readonly securityGroup: ISecurityGroup;
   constructor(scope: Construct, id: string, props: Props) {
     super(scope, id);
+
+    const { cluster, namespace, securityGroup } = props;
 
     const mesh = new Mesh(this, "Mesh", {
       egressFilter: MeshFilterType.DROP_ALL,
     });
     this.mesh = mesh;
-
-    const securityGroup = new SecurityGroup(this, "SecurityGroup", {
-      vpc: props.cluster.vpc,
-      allowAllOutbound: true,
-    });
-
-    this.securityGroup = securityGroup;
-    this.securityGroup.connections.allowFrom(
-      props.externalAccess,
-      Port.allTcp()
-    );
-    this.securityGroup.connections.allowFrom(this.securityGroup, Port.allTcp());
 
     const gateway = new VirtualGateway(this, "VirtualGateway", {
       mesh,
@@ -126,30 +115,23 @@ export class MeshConstruct extends Construct {
       this,
       "GatewayService",
       {
-        cluster: props.cluster,
+        cluster: cluster,
         taskDefinition: gatewayTaskDefinition,
         assignPublicIp: true,
       }
     );
 
     securityGroup.connections.allowFrom(gatewayService.service, Port.allTcp());
+    gatewayService.service.connections.allowFrom(securityGroup, Port.allTcp());
     gatewayService.service.connections.allowFrom(
-      props.externalAccess,
+      Peer.ipv4(cluster.vpc.vpcCidrBlock),
       Port.allTcp()
     );
-    gatewayService.service.connections.allowFrom(
-      Peer.ipv4(props.cluster.vpc.vpcCidrBlock),
-      Port.allTcp()
-    );
-
-    if (!props.cluster.defaultCloudMapNamespace) {
-      throw new Error("No cluster namespace!");
-    }
 
     const cloudMapService = new Service(this, "ServiceDiscovery", {
       name: "gateway",
-      namespace: props.cluster.defaultCloudMapNamespace,
-      dnsRecordType: DnsRecordType.SRV,
+      namespace,
+      dnsRecordType: DnsRecordType.A,
       customHealthCheck: {
         failureThreshold: 1,
       },
