@@ -5,10 +5,12 @@ import { App } from "aws-cdk-lib";
 import { StringParameter } from "aws-cdk-lib/aws-ssm";
 import { VirtualNode } from "aws-cdk-lib/aws-appmesh";
 
+export const BLUE_GREEN_STATE = "blue-green-state";
+
 export async function injectBlueGreenState(app: App) {
   let state: BlueGreenState | null = null;
 
-  const existingContext = app.node.tryGetContext("blue-green-state");
+  const existingContext = app.node.tryGetContext(BLUE_GREEN_STATE);
   if (existingContext) {
     state = existingContext;
   } else {
@@ -16,7 +18,7 @@ export async function injectBlueGreenState(app: App) {
 
     try {
       const response = await ssm.getParameter({
-        Name: "blue-green-state",
+        Name: BLUE_GREEN_STATE,
       });
 
       const parameterState = response.Parameter?.Value;
@@ -35,7 +37,7 @@ export async function injectBlueGreenState(app: App) {
     };
   }
 
-  app.node.setContext("blue-green-state", state);
+  app.node.setContext(BLUE_GREEN_STATE, state);
 }
 
 interface Props {
@@ -61,26 +63,24 @@ export class BlueGreenDeployment extends Construct {
     // Context providers actually execute _after_ construction
     // So leveraging data plugged into Context directly instead
     // see: https://github.com/aws/aws-cdk/issues/8273#issuecomment-824801527
-    const contextData = scope.node.tryGetContext("blue-green-state");
+    const contextData = scope.node.tryGetContext(BLUE_GREEN_STATE);
     if (!contextData) {
       throw new Error("Unable to operate without context");
     }
     const currentState: BlueGreenState = contextData;
 
     // if the version has updated, flip stacks and update versions
-    let newState: BlueGreenState;
+    let newState = currentState;
     if (currentState.nextVersion != props.version) {
       newState = {
         nextUpdate: currentState.nextUpdate == "blue" ? "green" : "blue",
         nextVersion: props.version,
         currentVersion: currentState.nextVersion,
       };
-    } else {
-      newState = currentState;
     }
 
     new StringParameter(this, "StateParameter", {
-      parameterName: "blue-green-state",
+      parameterName: BLUE_GREEN_STATE,
       stringValue: JSON.stringify(newState),
     });
 

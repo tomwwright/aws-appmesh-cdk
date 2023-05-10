@@ -10,10 +10,10 @@ import {
 } from "aws-cdk-lib/aws-appmesh";
 import { IConnectable } from "aws-cdk-lib/aws-ec2";
 import { Construct } from "constructs";
-import { BlueGreenDeployment } from "./blue-green";
-import { ClusterConstruct } from "./cluster";
-import { ExpressJsAppMesh } from "./express-app-mesh";
-import { MeshConstruct } from "./mesh";
+import { BlueGreenDeployment } from "./bluegreen/deployment";
+import { AppMeshCluster } from "./appmesh/cluster";
+import { AppMeshExpress } from "./appmesh/express";
+import { AppMesh } from "./appmesh/mesh";
 
 interface Props {
   namespaceName: string;
@@ -26,36 +26,36 @@ export class BlueGreenApp extends Construct {
 
     const { namespaceName, externalAccess } = props;
 
-    const stack = new Stack(this, "blue-green");
+    const stack = new Stack(this, namespaceName);
 
-    const clusterStack = new ClusterConstruct(stack, "Cluster", {
-      namespaceName,
-    });
+    const { cluster, namespace, securityGroup } = new AppMeshCluster(
+      stack,
+      "Cluster",
+      {
+        namespaceName,
+        externalAccess,
+      }
+    );
 
-    const { cluster, httpNamespaceName, namespace } = clusterStack;
-
-    const meshStack = new MeshConstruct(stack, "Mesh", {
+    const { mesh, gateway } = new AppMesh(stack, "Mesh", {
       cluster,
       namespace,
-      externalAccess,
+      securityGroup,
     });
-
-    const { mesh, gateway, securityGroup } = meshStack;
 
     const meshThings = {
       cluster,
       namespace,
-      httpNamespaceName,
       mesh,
       gateway,
       securityGroup,
     };
 
-    const deploy = new BlueGreenDeployment(stack, "Deploy", {
-      version: 5,
+    const deployment = new BlueGreenDeployment(stack, "Deploy", {
+      version: 1,
       build: (scope, version) => {
-        const service = new ExpressJsAppMesh(scope, "Service", {
-          serviceName: scope.node.id,
+        const service = new AppMeshExpress(scope, "Service", {
+          serviceName: scope.node.id.toLowerCase(),
           version: version.toString(),
           ...meshThings,
         });
@@ -70,33 +70,30 @@ export class BlueGreenApp extends Construct {
       virtualRouterName: "router",
       listeners: [VirtualRouterListener.http(80)],
     });
-    router.addRoute("blue-green", {
-      routeName: "blue-green",
+    router.addRoute("bluegreen", {
+      routeName: "bluegreen",
       routeSpec: RouteSpec.http({
         weightedTargets: [
           {
-            virtualNode: deploy.blue,
+            virtualNode: deployment.blue,
             weight: 50,
           },
           {
-            virtualNode: deploy.green,
+            virtualNode: deployment.green,
             weight: 50,
           },
         ],
       }),
     });
 
-    const blueGreenSerice = new VirtualService(stack, "RouterService", {
+    const routerService = new VirtualService(stack, "RouterService", {
       virtualServiceProvider: VirtualServiceProvider.virtualRouter(router),
-      virtualServiceName: "router-service",
+      virtualServiceName: "router",
     });
 
-    gateway.addGatewayRoute("blue-green", {
+    gateway.addGatewayRoute("bluegreen", {
       routeSpec: GatewayRouteSpec.http({
-        routeTarget: blueGreenSerice,
-        match: {
-          path: HttpGatewayRoutePathMatch.startsWith(`/service-blue-green`),
-        },
+        routeTarget: routerService,
       }),
     });
   }

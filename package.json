@@ -11,7 +11,8 @@
     "test": "jest",
     "cdk": "cdk",
     "cdk:appmesh": "cdk --app \"yarn ts-node bin/appmesh.ts\"",
-    "cdk:serviceconnect": "cdk --app \"yarn ts-node bin/service-connect.ts\"",
+    "cdk:bluegreen": "cdk --app \"yarn ts-node bin/bluegreen.ts\"",
+    "cdk:serviceconnect": "cdk --app \"yarn ts-node bin/serviceconnect.ts\"",
     "start": "ts-node bin/client.ts"
   },
   "devDependencies": {
