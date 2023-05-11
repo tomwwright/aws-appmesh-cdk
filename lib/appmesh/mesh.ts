@@ -33,10 +33,21 @@ export class AppMesh extends Construct {
 
     const { cluster, securityGroup } = props;
 
+    /**
+     * create the App Mesh mesh
+     */
+
     const mesh = new Mesh(this, "Mesh", {
       egressFilter: MeshFilterType.DROP_ALL,
     });
     this.mesh = mesh;
+
+    /**
+     * configure the gateway within the mesh
+     *
+     * at this stage this is just a logical component of the mesh
+     * with no corresponding running infrastructure
+     */
 
     const gateway = new VirtualGateway(this, "VirtualGateway", {
       mesh,
@@ -52,6 +63,21 @@ export class AppMesh extends Construct {
       virtualGatewayName: "virtual-gateway",
     });
     this.gateway = gateway;
+
+    /**
+     * configure a task definition that runs only the
+     * Envoy proxy
+     *
+     * we "wire this up" to the gateway in the mesh using the
+     * APPMESH_RESOURCE_ARN environment variable
+     *
+     * the rest is essentially boilerplate -- wordy!
+     *
+     * note: for nodes in the mesh, it would instead be our application
+     * with the Envoy proxy as a sidecar -- but a gateway is
+     * just the Envoy itself expecting to receive traffic directly
+     * and forward it
+     */
 
     const gatewayTaskDefinition = new FargateTaskDefinition(
       this,
@@ -91,6 +117,11 @@ export class AppMesh extends Construct {
       }),
     });
 
+    /**
+     * ensure that the Envoy when it starts has permissions
+     * to connect to AppMesh and download the state of the mesh
+     */
+
     gatewayTaskDefinition.addToTaskRolePolicy(
       new PolicyStatement({
         effect: Effect.ALLOW,
@@ -98,6 +129,13 @@ export class AppMesh extends Construct {
         resources: [`${mesh.meshArn}*`],
       })
     );
+
+    /**
+     * alright some actual infrastructure!
+     *
+     * fire up a Fargate service behind an NLB to act as the "front door"
+     * of our service mesh -- external traffic comes in here
+     */
 
     const gatewayService = new NetworkLoadBalancedFargateService(
       this,

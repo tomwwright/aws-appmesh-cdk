@@ -26,9 +26,26 @@ export class AppMeshCluster extends Construct {
 
     const { namespaceName } = props;
 
+    /**
+     * Vanilla ECS Cluster with underlying default VPC
+     */
+
     this.cluster = new Cluster(this, `Cluster`, {
       clusterName: namespaceName,
     });
+
+    /**
+     * create our own Cloud Map namespace for service discovery
+     *
+     * notably, this is a Private DNS namespace so Cloud Map creates
+     * an associated Route 53 private hosted zone and automates
+     * managing the records in it
+     *
+     * this differs from ECS Service Connect in that it uses an HTTP-Only
+     * namespace with no backing Route 53 DNS records
+     *
+     * see additional notes in the README
+     */
 
     this.namespace = new PrivateDnsNamespace(this, "Namespace", {
       name: namespaceName,

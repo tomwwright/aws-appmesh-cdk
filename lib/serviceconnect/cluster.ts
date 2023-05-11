@@ -18,6 +18,12 @@ export class ServiceConnectCluster extends Construct {
 
     const { namespaceName } = props;
 
+    /**
+     * defaultCloudMapNamespace allows us to configure the ECS Cluster
+     * for use with ECS Service Connect
+     *
+     * ECS creates a HTTP-only Cloud Map namespace automatically
+     */
     this.cluster = new Cluster(this, `Cluster`, {
       clusterName: namespaceName,
       defaultCloudMapNamespace: {
@@ -26,6 +32,7 @@ export class ServiceConnectCluster extends Construct {
       },
     });
 
+    // ensure that default namespace has been set and expose on the construct
     if (this.cluster.defaultCloudMapNamespace) {
       this.namespace = this.cluster.defaultCloudMapNamespace;
     } else {

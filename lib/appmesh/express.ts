@@ -43,6 +43,16 @@ export class AppMeshExpress extends Construct {
 
     const { cluster, mesh } = props;
 
+    /**
+     * our task definition needs to have proxy configuration applied
+     *
+     * this is almost entirely boilerplate except for 'appPort' which
+     * indicates which port our running service will be on
+     *
+     * (app mesh needs to know this port so that it can 'hijack' it
+     * for the proxying)
+     */
+
     const taskDefinition = new FargateTaskDefinition(this, "TaskDefinition", {
       proxyConfiguration: new AppMeshProxyConfiguration({
         containerName: "proxy",
@@ -55,6 +65,14 @@ export class AppMeshExpress extends Construct {
         },
       }),
     });
+
+    /**
+     * configure and add our application -- note there is nothing
+     * "service meshy" about it!
+     *
+     * unbeknownst to our little application, all sort of whacky
+     * stuff is happening elsewhere...
+     */
 
     const expressContainer = taskDefinition.addContainer("expressjs", {
       image: ContainerImage.fromAsset("expressjs"),
@@ -86,6 +104,10 @@ export class AppMeshExpress extends Construct {
       assignPublicIp: true,
     });
 
+    /**
+     * register our service for service discovery with Cloud Map
+     */
+
     const cloudMapService = new Service(this, "ServiceDiscovery", {
       name: props.serviceName,
       namespace: props.namespace,
@@ -98,6 +120,16 @@ export class AppMeshExpress extends Construct {
     service.associateCloudMapService({
       service: cloudMapService,
     });
+
+    /**
+     * create a logical node and service in our service mesh for our
+     * Express.js application
+     *
+     * note how service discovery is "wired up" on the virtual node
+     * to our Cloud Map service that we just registered
+     *
+     * ECS -> Cloud Map -> App Mesh
+     */
 
     const virtualNode = new VirtualNode(this, "VirtualNode", {
       mesh,
@@ -112,6 +144,22 @@ export class AppMeshExpress extends Construct {
     });
     virtualNode.grantStreamAggregatedResources(taskDefinition.taskRole);
     this.virtualNode = virtualNode;
+
+    const virtualService = new VirtualService(this, "VirtualService", {
+      virtualServiceName: `${props.serviceName}.${props.namespace.namespaceName}`,
+      virtualServiceProvider: VirtualServiceProvider.virtualNode(virtualNode),
+    });
+    this.virtualService = virtualService;
+
+    /**
+     * where the magic happens -- configure an Envoy proxy sidecar in our task
+     * definition
+     *
+     * note again the use of APPMESH_RESOURCE_ARN to configure this proxy
+     * as the virtual node we added
+     *
+     * the rest is _entirely_ boilerplate :sweat:
+     */
 
     const proxyContainer = taskDefinition.addContainer("proxy", {
       image: ContainerImage.fromRegistry(
@@ -156,11 +204,5 @@ export class AppMeshExpress extends Construct {
     expressContainer.addContainerDependencies({
       container: proxyContainer,
     });
-
-    const virtualService = new VirtualService(this, "VirtualService", {
-      virtualServiceName: `${props.serviceName}.${props.namespace.namespaceName}`,
-      virtualServiceProvider: VirtualServiceProvider.virtualNode(virtualNode),
-    });
-    this.virtualService = virtualService;
   }
 }

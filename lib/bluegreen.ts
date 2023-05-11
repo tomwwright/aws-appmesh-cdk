@@ -26,7 +26,13 @@ export class BlueGreenApp extends Construct {
 
     const { namespaceName, externalAccess } = props;
 
+    // create a stack to hold all our resources
+
     const stack = new Stack(this, namespaceName);
+
+    /**
+     * set up for a App Mesh as per last time
+     */
 
     const { cluster, namespace, securityGroup } = new AppMeshCluster(
       stack,
@@ -50,6 +56,21 @@ export class BlueGreenApp extends Construct {
       securityGroup,
     };
 
+    /**
+     * construct a BlueGreenDeployment, passing the current version
+     *
+     * if this is already deployed this version will be partnered with
+     * the previous version stored in Parameter Store state
+     *
+     * the `build` prop is passed a function used to construct both the
+     * blue and green sides of the deployment, see BlueGreenDeployment
+     * for details
+     *
+     * for this example, our blue-green deployment is simply one instance
+     * of our Express.js app wired into App Mesh
+     *
+     */
+
     const deployment = new BlueGreenDeployment(stack, "Deploy", {
       version: 1,
       build: (scope, version) => {
@@ -62,7 +83,10 @@ export class BlueGreenApp extends Construct {
       },
     });
 
-    // construct router on top of services
+    /**
+     * construct a router on top of our two nodes exposed by the
+     * BlueGreenDeployment and connect that to our gateway
+     */
 
     const router = new VirtualRouter(stack, "Router", {
       mesh,

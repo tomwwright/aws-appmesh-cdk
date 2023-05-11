@@ -24,6 +24,14 @@ export class ServiceConnectExpress extends Construct {
 
     const { cluster, namespace, serviceName, securityGroup } = props;
 
+    /**
+     * preparing a task definition for use with ECS Service Connect requires
+     * adding some details to our `portMappings`
+     *
+     * see `name` and `appProtocol` added below that allow ECS Service Connect make
+     * that container port discoverable
+     */
+
     const taskDefinition = new FargateTaskDefinition(this, "TaskDefinition");
     taskDefinition.addContainer("expressjs", {
       image: ContainerImage.fromAsset("expressjs"),
@@ -42,6 +50,22 @@ export class ServiceConnectExpress extends Construct {
         },
       ],
     });
+
+    /**
+     * configuring a service for use with ECS Service Connect requires adding
+     * configuration under `serviceConnectConfiguration`
+     *
+     * `namespace` defines which namespace to connect to
+     *
+     * `services` defines the list of things to register -- see how the
+     * `portMappingName` configured in our task definition is wired
+     * up for service discovery using `discoveryName` ("blue" or "green")
+     *
+     * end result: "blue.serviceconnect" available via service discovery
+     *
+     * this configuration is used to configure an Envoy proxy that is injected
+     * into the service
+     */
 
     new FargateService(this, "Service", {
       cluster,
