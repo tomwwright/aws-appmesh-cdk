@@ -334,6 +334,7 @@ Resources
 
 Deploy and watch client stats and `blue:3` will start serving:   
 
+```
 ...
 200 OK blue:1=56 green:2=38
 200 OK blue:1=56 green:2=39
