@@ -66,6 +66,8 @@ export class BlueGreenApp extends Construct {
      * blue and green sides of the deployment, see BlueGreenDeployment
      * for details
      *
+     * the `build` prop kind of works like "render props" pattern from React
+     *
      * for this example, our blue-green deployment is simply one instance
      * of our Express.js app wired into App Mesh
      *
