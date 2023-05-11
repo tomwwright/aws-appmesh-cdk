@@ -225,6 +225,8 @@ Blue-Green deployments with AWS CDK are difficult to implement because blue-gree
 
 This proof-of-concept solves this using state maintained in AWS Parameter Store. The AWS CDK retrieves this state and applies logic on it to perform the synth, and then the deployment handles updating this state as part of the deployment.
 
+This isn't strictly a useful implementation of blue-green because we don't do any traffic shifting (it is fixed at 50:50). An extension to this proof-of-concept would leverage more complex state to drive some sort of traffic shifting schedule.
+
 Explore the code for the blue-green architecture below starting from [`bluegreen.ts`](./bin/bluegreen.ts). The ECS and App Mesh portions of this implementation are derived from the `appmesh` example above so refer there if anything is unclear.
 
 ![Blue-Green Infrastructure Diagram](./docs/bluegreen.svg)
