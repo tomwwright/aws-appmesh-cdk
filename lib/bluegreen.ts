@@ -39,7 +39,6 @@ export class BlueGreenApp extends Construct {
 
     const { mesh, gateway } = new AppMesh(stack, "Mesh", {
       cluster,
-      namespace,
       securityGroup,
     });
 

@@ -8,13 +8,7 @@ import {
   VirtualGateway,
   VirtualGatewayListener,
 } from "aws-cdk-lib/aws-appmesh";
-import {
-  IConnectable,
-  ISecurityGroup,
-  Peer,
-  Port,
-  SecurityGroup,
-} from "aws-cdk-lib/aws-ec2";
+import { ISecurityGroup, Peer, Port } from "aws-cdk-lib/aws-ec2";
 import {
   Cluster,
   ContainerImage,
@@ -24,16 +18,10 @@ import {
 } from "aws-cdk-lib/aws-ecs";
 import { NetworkLoadBalancedFargateService } from "aws-cdk-lib/aws-ecs-patterns";
 import { Effect, PolicyStatement } from "aws-cdk-lib/aws-iam";
-import {
-  DnsRecordType,
-  IHttpNamespace,
-  Service,
-} from "aws-cdk-lib/aws-servicediscovery";
 import { Construct } from "constructs";
 
 interface Props extends StackProps {
   cluster: Cluster;
-  namespace: IHttpNamespace;
   securityGroup: ISecurityGroup;
 }
 
@@ -43,7 +31,7 @@ export class AppMesh extends Construct {
   constructor(scope: Construct, id: string, props: Props) {
     super(scope, id);
 
-    const { cluster, namespace, securityGroup } = props;
+    const { cluster, securityGroup } = props;
 
     const mesh = new Mesh(this, "Mesh", {
       egressFilter: MeshFilterType.DROP_ALL,
@@ -127,18 +115,5 @@ export class AppMesh extends Construct {
       Peer.ipv4(cluster.vpc.vpcCidrBlock),
       Port.allTcp()
     );
-
-    const cloudMapService = new Service(this, "ServiceDiscovery", {
-      name: "gateway",
-      namespace,
-      dnsRecordType: DnsRecordType.A,
-      customHealthCheck: {
-        failureThreshold: 1,
-      },
-    });
-
-    gatewayService.service.associateCloudMapService({
-      service: cloudMapService,
-    });
   }
 }

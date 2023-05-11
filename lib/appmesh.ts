@@ -38,7 +38,6 @@ export class AppMeshApp extends App {
 
     const { mesh, gateway } = new AppMesh(stack, "Mesh", {
       cluster,
-      namespace,
       securityGroup,
     });
 
