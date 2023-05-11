@@ -33,7 +33,7 @@ export async function injectBlueGreenState(app: App) {
     state = {
       nextUpdate: "blue",
       currentVersion: 1,
-      nextVersion: 1,
+      previousVersion: 1,
     };
   }
 
@@ -47,8 +47,8 @@ interface Props {
 
 type BlueGreenState = {
   nextUpdate: "blue" | "green";
-  nextVersion: number;
   currentVersion: number;
+  previousVersion: number;
 };
 
 export class BlueGreenDeployment extends Construct {
@@ -71,11 +71,11 @@ export class BlueGreenDeployment extends Construct {
 
     // if the version has updated, flip stacks and update versions
     let newState = currentState;
-    if (currentState.nextVersion != props.version) {
+    if (currentState.currentVersion != props.version) {
       newState = {
         nextUpdate: currentState.nextUpdate == "blue" ? "green" : "blue",
-        nextVersion: props.version,
-        currentVersion: currentState.nextVersion,
+        currentVersion: props.version,
+        previousVersion: currentState.currentVersion,
       };
     }
 
@@ -91,12 +91,12 @@ export class BlueGreenDeployment extends Construct {
 
     const blueVersion =
       newState.nextUpdate == "blue"
-        ? newState.nextVersion
-        : newState.currentVersion;
+        ? newState.currentVersion
+        : newState.previousVersion;
     const greenVersion =
       newState.nextUpdate == "green"
-        ? newState.nextVersion
-        : newState.currentVersion;
+        ? newState.currentVersion
+        : newState.previousVersion;
 
     this.blue = props.build(blue, blueVersion);
     this.green = props.build(green, greenVersion);
